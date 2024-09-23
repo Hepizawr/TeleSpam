@@ -4,10 +4,10 @@ import traceback
 
 from loguru import logger
 
-from telethon.errors import UserNotParticipantError, FloodWaitError, SessionRevokedError, ChatIdInvalidError
+from telethon.errors import UserNotParticipantError, FloodWaitError, ChatIdInvalidError
 from telethon.tl.functions.channels import LeaveChannelRequest
-from telethon.tl.functions.messages import DeleteChatUserRequest, ExportChatInviteRequest
-from telethon.hints import Entity, EntityLike
+from telethon.tl.functions.messages import DeleteChatUserRequest
+from telethon.hints import EntityLike
 
 import config
 from app.modules.base import BaseModule

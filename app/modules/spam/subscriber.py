@@ -5,7 +5,7 @@ import traceback
 
 from loguru import logger
 from telethon.errors import ChannelsTooMuchError, InviteRequestSentError, UsersTooMuchError, \
-    UserAlreadyParticipantError, InviteHashExpiredError
+    UserAlreadyParticipantError, InviteHashExpiredError, UsernameInvalidError
 from telethon.tl.functions.channels import JoinChannelRequest, GetFullChannelRequest
 from telethon.hints import EntityLike
 from telethon.tl.functions.messages import ImportChatInviteRequest
@@ -15,7 +15,7 @@ from app.modules.base import BaseModule
 from app.modules.leave_groups import LeaveGroupsModule
 from app.modules.utils.db_tools import set_user_group_db
 from app.modules.utils.tools import get_groups_from_file, check_participation, check_ex_participation, \
-    get_group_messages, resolve_captcha
+    get_group_messages, resolve_captcha, FileHandler
 
 from database import session as db
 from database import models
@@ -45,6 +45,8 @@ class SubscriberModule(BaseModule):
         else:
             self.groups = []
 
+        self.groups_file = groups_file
+        self.file_handler = FileHandler()
         self.groups_per_session = groups_per_session
         self.allow_multiple_sessions_per_group = allow_multiple_sessions_per_group
         self.semaphore = asyncio.Semaphore(config.MAX_THREADS)
@@ -164,6 +166,10 @@ class SubscriberModule(BaseModule):
             logger.error(f"{session}: {group} has expired and is not valid anymore")
             return False
 
+        except UsernameInvalidError:
+            logger.error(f"{session}: Nobody is using this username {group}, or the username is unacceptable")
+            return False
+
         except (ValueError, TypeError):
             if "+" in group:
                 group_hash = group.split("+")[1]
@@ -228,19 +234,24 @@ class SubscriberModule(BaseModule):
                 return
 
             if not await self.join_group(session=session, group=group):
+                await self.file_handler.delete_row_from_file(file=self.groups_file, row=group)
                 return
 
             if (not await self._check_last_n_messages(session=session, group=group) or
                     not await self._check_n_participants(session=session, group=group)):
                 await LeaveGroupsModule.leave_group(session=session, group=group)
+                await self.file_handler.delete_row_from_file(file=self.groups_file, row=group)
                 return
 
             await asyncio.sleep(10)
 
-            messages = await get_group_messages(session=session, group=group, message_count=50)
+            if not (messages := await get_group_messages(session=session, group=group, message_count=50)):
+                await LeaveGroupsModule.leave_group(session=session, group=group)
+                return
 
             if not await resolve_captcha(session=session, group=group, messages=messages):
                 await LeaveGroupsModule.leave_group(session=session, group=group)
+                await self.file_handler.delete_row_from_file(file=self.groups_file, row=group)
                 return
 
     async def _get_task(self, session: Session):

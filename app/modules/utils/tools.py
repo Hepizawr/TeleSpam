@@ -2,13 +2,14 @@ import asyncio
 import traceback
 from pathlib import Path
 
+import aiofiles
 from loguru import logger
 
 from seleniumwire import webdriver
 from telethon.tl.custom import Dialog
 from telethon.tl.types import MessageEntityMentionName, User, Channel
 from telethon.tl.functions.messages import GetBotCallbackAnswerRequest, AcceptUrlAuthRequest
-from telethon.errors import BotResponseTimeoutError, MessageIdInvalidError
+from telethon.errors import BotResponseTimeoutError, MessageIdInvalidError, ChannelPrivateError
 
 from database import session as db
 from database import models
@@ -46,11 +47,42 @@ def get_messages_from_file(file: None | str) -> list | list[str]:
         return []
 
     try:
-        return Path(file, encoding='utf-8').read_text().split('|')
+        with open(file, "r", encoding='utf-8') as f:
+            return f.read().split("|")
 
     except (OSError, IOError) as e:
         logger.error(f"Error reading file {file}: {e}")
         return []
+
+
+class FileHandler:
+    def __init__(self):
+        self.semaphore = asyncio.Semaphore(1)
+
+    async def delete_row_from_file(self, file: str, row: str) -> None:
+        """
+        Deletes a specified row from a file asynchronously.
+
+        :param file: The path to the file from which the row will be deleted.
+        :param row: The exact content of the row to be deleted from the file.
+        :return: None
+        """
+        async with self.semaphore:
+            try:
+                async with aiofiles.open(file, mode='r', encoding='utf-8') as f:
+                    rows = await f.readlines()
+
+                rows = [r for r in rows if r.strip() != row]
+
+                async with aiofiles.open(file, mode='w', encoding='utf-8') as f:
+                    await f.writelines(rows)
+
+            except FileNotFoundError as e:
+                logger.error(f"File {file} not found.")
+            except PermissionError:
+                logger.error(f"Permission denied: Cannot access file {file}.")
+            except Exception as e:
+                logger.error(f"An unexpected error occurred: {e}")
 
 
 async def get_entity(session: Session, identifier: EntityLike) -> Entity | None:
@@ -110,7 +142,14 @@ async def get_group_messages(session: Session, group: str, message_count: int) -
     if not (client := await session.get_async_client()):
         return
 
-    return await client.get_messages(group, limit=message_count)
+    try:
+        return await client.get_messages(group, limit=message_count)
+    except ChannelPrivateError:
+        logger.error(f"{session}: {group} specified is private and you lack to access it.")
+        return
+
+    except:
+        logger.error(f"{session} error while trying to retrieve the latest messages from a group {group}")
 
 
 async def get_async_page_with_proxy(host, port, username, password, url, timeout: int = 20):

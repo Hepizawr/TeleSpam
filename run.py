@@ -1,5 +1,7 @@
 import click
 
+from app.modules.spam.sender import SenderModule
+from app.modules.utils.decorator import cron_task_decorator
 from database import engine
 from database.models import Base
 
@@ -23,6 +25,7 @@ def cli():
 @click.option('--groups-list', default=None)
 @click.option('--groups-per-session', default=1)
 @click.option('--multiple-sessions-per-group/--no-multiple-sessions-per-group', default=False)
+@cron_task_decorator
 def join_groups(role, session_username, groups_file, groups_list, groups_per_session, multiple_sessions_per_group):
     if not (sessions := get_sessions(role=role, username=session_username)):
         return
@@ -44,6 +47,21 @@ def leave_groups(role, session_username, groups_file, groups_list, leave_all):
         return
 
     module = LeaveGroupsModule(groups_file=groups_file, groups_list=groups_list, leave_all=leave_all)
+    loop = Loop(sessions)
+    loop.start_module(module)
+
+
+@click.command()
+@click.option('--role', default=None)
+@click.option('--session-username', default=None)
+@click.option('--messages-file', default=None)
+@click.option('--messages-list', default=None)
+@cron_task_decorator
+def send_messages(role, session_username, messages_file, messages_list):
+    if not (sessions := get_sessions(role=role, username=session_username)):
+        return
+
+    module = SenderModule(messages_file=messages_file, messages_list=messages_list)
     loop = Loop(sessions)
     loop.start_module(module)
 
@@ -77,7 +95,7 @@ def add_commands(*commands):
 
 
 add_commands(delete_group_db, test)
-add_commands(join_groups, leave_groups)
+add_commands(join_groups, leave_groups, send_messages)
 
 if __name__ == '__main__':
     Base.metadata.create_all(bind=engine)
