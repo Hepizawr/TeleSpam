@@ -1,0 +1,15 @@
+import os
+from dotenv import load_dotenv, find_dotenv
+
+load_dotenv(find_dotenv())
+
+DATABASE_URL = os.getenv("DATABASE_URL")
+
+SESSIONS_FOLDER_PATH = os.getenv("SESSIONS_FOLDER_PATH")
+GROUPS_FOLDER_PATH = os.getenv("GROUPS_FOLDER_PATH")
+MESSAGES_FOLDER_PATH = os.getenv("MESSAGES_FOLDER_PATH")
+USERS_FOLDER_PATH = os.getenv("USERS_FOLDER_PATH")
+IMAGES_FOLDER_PATH = os.getenv("IMAGES_FOLDER_PATH")
+
+FLOOD_WAIT_TIMEOUT = 50
+MAX_THREADS = 2

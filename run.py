@@ -1,0 +1,84 @@
+import click
+
+from database import engine
+from database.models import Base
+
+from app.modules.leave_groups import LeaveGroupsModule
+from app.modules.spam.subscriber import SubscriberModule
+from app.modules.test import TestModule
+from app.modules.utils.db_tools import delete_user_group_db
+from app.modules.utils.get_sessions import get_sessions
+from app.modules.utils.loop import Loop
+
+
+@click.group()
+def cli():
+    pass
+
+
+@click.command()
+@click.option('--role', default=None)
+@click.option('--session-username', default=None)
+@click.option('--groups-file', default=None)
+@click.option('--groups-list', default=None)
+@click.option('--groups-per-session', default=1)
+@click.option('--multiple-sessions-per-group/--no-multiple-sessions-per-group', default=False)
+def join_groups(role, session_username, groups_file, groups_list, groups_per_session, multiple_sessions_per_group):
+    if not (sessions := get_sessions(role=role, username=session_username)):
+        return
+
+    module = SubscriberModule(groups_file=groups_file, groups_list=groups_list, groups_per_session=groups_per_session,
+                              allow_multiple_sessions_per_group=multiple_sessions_per_group)
+    loop = Loop(sessions)
+    loop.start_module(module)
+
+
+@click.command()
+@click.option('--role', default=None)
+@click.option('--session-username', default=None)
+@click.option('--groups-file', default=None)
+@click.option('--groups-list', default=None)
+@click.option('--leave-all/--leave-not-all', default=False)
+def leave_groups(role, session_username, groups_file, groups_list, leave_all):
+    if not (sessions := get_sessions(role=role, username=session_username)):
+        return
+
+    module = LeaveGroupsModule(groups_file=groups_file, groups_list=groups_list, leave_all=leave_all)
+    loop = Loop(sessions)
+    loop.start_module(module)
+
+
+@click.command()
+@click.option('--session-username', required=True)
+@click.option('--group', required=True)
+def delete_group_db(session_username, group):
+    if not (sessions := get_sessions(username=session_username)):
+        return
+
+    delete_user_group_db(session=sessions.pop(), group=group)
+
+
+@click.command()
+@click.option('--role', default="checker")
+@click.option('--session-username', default="None")
+@click.option('--entity-username', default="PenisProger")
+def test(role, session_username, entity_username):
+    if not (sessions := get_sessions(role=role, username=session_username)):
+        return
+
+    module = TestModule(username=entity_username)
+    loop = Loop(sessions)
+    loop.start_module(module)
+
+
+def add_commands(*commands):
+    for command in commands:
+        cli.add_command(command)
+
+
+add_commands(delete_group_db, test)
+add_commands(join_groups, leave_groups)
+
+if __name__ == '__main__':
+    Base.metadata.create_all(bind=engine)
+    cli()
