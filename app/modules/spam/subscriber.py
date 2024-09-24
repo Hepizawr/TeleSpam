@@ -15,7 +15,7 @@ from app.modules.base import BaseModule
 from app.modules.leave_groups import LeaveGroupsModule
 from app.modules.utils.db_tools import set_user_group_db
 from app.modules.utils.tools import get_groups_from_file, check_participation, check_ex_participation, \
-    get_group_messages, resolve_captcha, FileHandler
+    get_group_messages, resolve_captcha, FileHandler, get_entity, get_entity_name
 
 from database import session as db
 from database import models
@@ -106,10 +106,11 @@ class SubscriberModule(BaseModule):
         return True
 
     @staticmethod
-    def _check_any_session_in_group(sessions: list[Session], group: str) -> bool:
+    def _check_any_other_session_in_group(current_session: Session, sessions: list[Session], group: str) -> bool:
         """
             Checks if any session from the list (excluding one) is already in the group and has not left it.
 
+            :param current_session: Current session objects fetched from the database
             :param sessions: List of session objects fetched from the database
             :param group: The group identifier (username).
             :return: True if any session (other than excluded) is still in the group, otherwise False.
@@ -120,6 +121,8 @@ class SubscriberModule(BaseModule):
             return False
 
         for session in sessions:
+            if session is current_session:
+                continue
 
             session_in_group = any(sg.username == group for sg in session.groups)
 
@@ -197,6 +200,10 @@ class SubscriberModule(BaseModule):
 
         try:
             await client(ImportChatInviteRequest(hash=group_hash))
+
+            set_user_group_db(session=session,
+                              group=get_entity_name(
+                                  await get_entity(session=session, identifier=f"t.me/+{group_hash}")))
             logger.success(f"{session} successfully joined the private group {group_hash}")
             return True
 
@@ -229,28 +236,34 @@ class SubscriberModule(BaseModule):
                     check_ex_participation(session=session, group=group)):
                 return
 
-            if (not self.allow_multiple_sessions_per_group and
-                    self._check_any_session_in_group(sessions=self.sessions, group=group)):
-                return
-
             if not await self.join_group(session=session, group=group):
                 await self.file_handler.delete_row_from_file(file=self.groups_file, row=group)
                 return
 
+            if (not self.allow_multiple_sessions_per_group and self._check_any_other_session_in_group(
+                    current_session=session, sessions=self.sessions,
+                    group=get_entity_name(await get_entity(session=session, identifier=group)))):
+                await LeaveGroupsModule.leave_group(session=session,
+                                                    group=await get_entity(session=session, identifier=group))
+                return
+
             if (not await self._check_last_n_messages(session=session, group=group) or
                     not await self._check_n_participants(session=session, group=group)):
-                await LeaveGroupsModule.leave_group(session=session, group=group)
+                await LeaveGroupsModule.leave_group(session=session,
+                                                    group=await get_entity(session=session, identifier=group))
                 await self.file_handler.delete_row_from_file(file=self.groups_file, row=group)
                 return
 
             await asyncio.sleep(10)
 
             if not (messages := await get_group_messages(session=session, group=group, message_count=50)):
-                await LeaveGroupsModule.leave_group(session=session, group=group)
+                await LeaveGroupsModule.leave_group(session=session,
+                                                    group=await get_entity(session=session, identifier=group))
                 return
 
             if not await resolve_captcha(session=session, group=group, messages=messages):
-                await LeaveGroupsModule.leave_group(session=session, group=group)
+                await LeaveGroupsModule.leave_group(session=session,
+                                                    group=await get_entity(session=session, identifier=group))
                 await self.file_handler.delete_row_from_file(file=self.groups_file, row=group)
                 return
 

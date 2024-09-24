@@ -25,7 +25,7 @@ def cli():
 @click.option('--groups-list', default=None)
 @click.option('--groups-per-session', default=1)
 @click.option('--multiple-sessions-per-group/--no-multiple-sessions-per-group', default=False)
-@cron_task_decorator
+# @cron_task_decorator
 def join_groups(role, session_username, groups_file, groups_list, groups_per_session, multiple_sessions_per_group):
     if not (sessions := get_sessions(role=role, username=session_username)):
         return
@@ -56,7 +56,7 @@ def leave_groups(role, session_username, groups_file, groups_list, leave_all):
 @click.option('--session-username', default=None)
 @click.option('--messages-file', default=None)
 @click.option('--messages-list', default=None)
-@cron_task_decorator
+# @cron_task_decorator
 def send_messages(role, session_username, messages_file, messages_list):
     if not (sessions := get_sessions(role=role, username=session_username)):
         return
@@ -79,7 +79,7 @@ def delete_group_db(session_username, group):
 @click.command()
 @click.option('--role', default="checker")
 @click.option('--session-username', default="None")
-@click.option('--entity-username', default="PenisProger")
+@click.option('--entity-username', default="t.me/+Lvd_FbV7LlgyNWVi")
 def test(role, session_username, entity_username):
     if not (sessions := get_sessions(role=role, username=session_username)):
         return
