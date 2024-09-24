@@ -143,7 +143,7 @@ class SenderModule(BaseModule):
         for session in self.sessions:
             session_groups = [dialog for dialog in (await get_all_dialogs(session=session)) if
                               dialog.is_group and get_entity_name(entity=dialog) != 'cvg']
-            tasks.append(self._get_task(session=session, groups=session_groups))
+            tasks.append(await self._get_task(session=session, groups=session_groups))
 
         if tasks:
             await asyncio.gather(*tasks)
