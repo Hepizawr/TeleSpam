@@ -132,6 +132,7 @@ class SenderModule(BaseModule):
 
     async def run(self):
         tasks = []
+
         for session in self.sessions:
             session_groups = [dialog for dialog in (await get_all_dialogs(session=session)) if
                               dialog.is_group and get_entity_name(entity=dialog) != 'cvg']

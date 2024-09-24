@@ -268,7 +268,8 @@ class SubscriberModule(BaseModule):
             await asyncio.sleep(config.FLOOD_WAIT_TIMEOUT)
 
     async def run(self):
-        tasks = [self._get_task(session) for session in self.sessions]
+        if len(self.groups) < self.groups_per_session:
+            logger.error(f"Not enough groups have been given to join (<{self.groups_per_session})")
 
-        if tasks:
+        if tasks := [self._get_task(session) for session in self.sessions]:
             await asyncio.gather(*tasks)

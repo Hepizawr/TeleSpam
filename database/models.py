@@ -113,8 +113,12 @@ class Session(Base):
             self.task.status = TaskStatus.ERROR.value
             return
 
+        except ConnectionError:
+            logger.error(f"{self} can't connect to Telegram. Most likely a problem with the servers")
+            return
+
         except:
-            logger.error(f'{self} not working, for some reason ')
+            logger.error(f"{self} not working, for some reason")
             traceback.print_exc()
             return
 
@@ -150,8 +154,12 @@ class Session(Base):
             self.task.status = TaskStatus.ERROR.value
             return
 
+        except ConnectionError:
+            logger.error(f"{self} can't connect to Telegram. Most likely a problem with the servers")
+            return
+
         except:
-            logger.error(f'{self} not working, for some reason ')
+            logger.error(f"{self} not working, for some reason")
             traceback.print_exc()
             return
 
