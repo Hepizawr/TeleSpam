@@ -133,8 +133,9 @@ class SenderModule(BaseModule):
         for group in groups:
             await self._split_in_threads(session=session, group=group, message=random.choice(self.messages))
 
-            logger.info(f"{session} is sleeping... {config.FLOOD_WAIT_TIMEOUT} left")
-            await asyncio.sleep(config.FLOOD_WAIT_TIMEOUT)
+            sleep_time = random.uniform(self.timeout_by_request_min, self.timeout_by_request_max)
+            logger.info(f"{session} is sleeping... {sleep_time} left")
+            await asyncio.sleep(sleep_time)
 
     async def run(self):
         tasks = []
