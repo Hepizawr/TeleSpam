@@ -62,16 +62,15 @@ class LeaveGroupsModule(BaseModule):
         try:
             await client(LeaveChannelRequest(channel=group))
 
-            group_name = get_entity_name(entity=group)
-            logger.success(f"{session}: Successfully left group {group_name}")
-            set_leave_user_group_db(session=session, group=group_name)
+            logger.success(f"{session}: Successfully left group {get_entity_name(entity=group)}")
+            set_leave_user_group_db(session=session, group=get_entity_name(entity=group))
             return True
 
         except TypeError:
             return await LeaveGroupsModule._leave_private_group(session=session, group=group)
 
         except UserNotParticipantError:
-            logger.info(f"{session}: Not a participant in group {group_name}")
+            logger.info(f"{session}: Not a participant in group {get_entity_name(entity=group)}")
             return False
 
         except FloodWaitError as e:
@@ -81,7 +80,7 @@ class LeaveGroupsModule(BaseModule):
             return False
 
         except Exception as e:
-            logger.error(f"{session}: Error while leaving group {group_name}")
+            logger.error(f"{session}: Error while leaving group {get_entity_name(entity=group)}")
             traceback.print_exc()
             return False
 
