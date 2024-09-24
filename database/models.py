@@ -117,6 +117,10 @@ class Session(Base):
             logger.error(f"{self} can't connect to Telegram. Most likely a problem with the servers")
             return
 
+        except AuthKeyDuplicatedError:
+            logger.error(f"{self} was used under two different IP addresses simultaneously")
+            return
+
         except:
             logger.error(f"{self} not working, for some reason")
             traceback.print_exc()
@@ -156,6 +160,10 @@ class Session(Base):
 
         except ConnectionError:
             logger.error(f"{self} can't connect to Telegram. Most likely a problem with the servers")
+            return
+
+        except AuthKeyDuplicatedError:
+            logger.error(f"{self} was used under two different IP addresses simultaneously")
             return
 
         except:
