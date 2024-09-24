@@ -14,9 +14,8 @@ def start_cron_task(role: str) -> bool:
     :param role: Role to mark as in use.
     :return: True if the role was successfully marked as in use, False if the role is already marked.
     """
-    record_in_db = db.query(models.RolesInUse).filter_by(role=role).first()
 
-    if not record_in_db:
+    if not db.query(models.RolesInUse).filter_by(role=role).first():
         db.add(models.RolesInUse(role=role))
         db.commit()
         return True  # Role was successfully marked as in use
@@ -31,8 +30,8 @@ def stop_cron_task(role: str) -> bool:
     :param role: Role to unmark as in use.
     :return: True if the role was successfully removed, False if the role was not found.
     """
-    record_in_db = db.query(models.RolesInUse).filter_by(role=role).first()
-    if record_in_db:
+
+    if record_in_db := db.query(models.RolesInUse).filter_by(role=role).first():
         db.delete(record_in_db)
         db.commit()
         return True  # Role was successfully removed
