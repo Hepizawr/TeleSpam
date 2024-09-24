@@ -5,7 +5,7 @@ import traceback
 from loguru import logger
 from database import session as db
 from telethon.errors import InputUserDeactivatedError, UserBannedInChannelError, ChatWriteForbiddenError, \
-    ChatRestrictedError, ChatAdminRequiredError, ForbiddenError, PeerIdInvalidError
+    ChatRestrictedError, ChatAdminRequiredError, ForbiddenError, PeerIdInvalidError, SlowModeWaitError
 
 from telethon.hints import EntityLike, Entity
 
@@ -46,14 +46,12 @@ class SenderModule(BaseModule):
         :param group: The group's identifier (username) as a string.
         :return: True if any session from the list left the group, otherwise False.
         """
-        # Find the group in the database by its username
+
         if not (group_db := db.query(models.Group).filter_by(username=group).first()):
             return False
 
-        # Extract session IDs from the list of session objects
         session_ids = [session.id for session in sessions]
 
-        # Check if any session with the specified session IDs has left the group
         return db.query(models.UserGroup).filter(
             models.UserGroup.session_id.in_(session_ids),
             models.UserGroup.group_id == group_db.id,
@@ -74,6 +72,8 @@ class SenderModule(BaseModule):
             return False
 
         try:
+            logger.info(f"{session} is trying send message to {get_entity_name(entity=recipient)}")
+
             await client.send_message(entity=recipient, message=message)
             logger.success(f"{session} successfully sent message to {get_entity_name(entity=recipient)}")
             return True
@@ -92,6 +92,12 @@ class SenderModule(BaseModule):
 
         except PeerIdInvalidError:
             logger.error(f"{session}: {get_entity_name(entity=recipient)} an invalid Peer was used.")
+            return False
+
+        except SlowModeWaitError as e:
+            logger.error(
+                f"{session} wait of {e.seconds} seconds is required before sending another message to {get_entity_name(entity=recipient)}")
+            return True
 
         except:
             logger.error(f"{session}: Error while trying send message to {get_entity_name(entity=recipient)}")
@@ -109,8 +115,8 @@ class SenderModule(BaseModule):
         """
         async with self.semaphore:
             if self._check_any_session_was_in_group(sessions=self.sessions, group=get_entity_name(entity=group)):
-                message = [message.replace(operator_username, "").strip() for operator_username in
-                           config.OPERATORS_USERNAMES]
+                for operator_username in config.OPERATORS_USERNAMES:
+                    message.replace(operator_username, "").strip()
 
             if not await self.send_message(session=session, recipient=group, message=message):
                 await LeaveGroupsModule.leave_group(session=session, group=group)
