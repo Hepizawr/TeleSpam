@@ -40,27 +40,25 @@ class SenderModule(BaseModule):
     @staticmethod
     def _check_any_session_was_in_group(sessions: list[Session], group: str) -> bool:
         """
-            Checks if any session from the list was in the group and left it.
+        Checks if any session from the list was previously in the group and has left it.
 
-            :param sessions: List of session objects fetched from the database
-            :param group: The group identifier (username).
-            :return: True if any session (other than excluded) is still in the group, otherwise False.
+        :param sessions: List of session objects fetched from the database.
+        :param group: The group's identifier (username) as a string.
+        :return: True if any session from the list left the group, otherwise False.
         """
-        group_db = db.query(models.Group).filter_by(username=group).first()
-
-        if not group_db:
+        # Find the group in the database by its username
+        if not (group_db := db.query(models.Group).filter_by(username=group).first()):
             return False
 
+        # Extract session IDs from the list of session objects
         session_ids = [session.id for session in sessions]
 
-        if db.query(models.UserGroup).filter_by(
-                models.UserGroup.session_id.in_(session_ids),
-                group_id=group_db.id,
-                leaved=True
-        ).first():
-            return True
-
-        return False
+        # Check if any session with the specified session IDs has left the group
+        return db.query(models.UserGroup).filter(
+            models.UserGroup.session_id.in_(session_ids),
+            models.UserGroup.group_id == group_db.id,
+            models.UserGroup.leaved == True
+        ).first() is not None
 
     @staticmethod
     async def send_message(session: Session, recipient: EntityLike, message: str) -> bool:
