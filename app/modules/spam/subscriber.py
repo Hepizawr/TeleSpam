@@ -13,7 +13,7 @@ from telethon.tl.functions.messages import ImportChatInviteRequest
 import config
 from app.modules.base import BaseModule
 from app.modules.leave_groups import LeaveGroupsModule
-from app.modules.utils.db_tools import set_user_group_db
+from app.modules.utils.db_tools import set_user_group_db, delete_user_group_db
 from app.modules.utils.tools import get_groups_from_file, check_participation, check_ex_participation, \
     get_group_messages, resolve_captcha, FileHandler, get_entity, get_entity_name
 
@@ -245,6 +245,8 @@ class SubscriberModule(BaseModule):
                     group=get_entity_name(await get_entity(session=session, identifier=group)))):
                 await LeaveGroupsModule.leave_group(session=session,
                                                     group=await get_entity(session=session, identifier=group))
+                delete_user_group_db(session=session,
+                                     group=get_entity_name(await get_entity(session=session, identifier=group)))
                 return
 
             if (not await self._check_last_n_messages(session=session, group=group) or
