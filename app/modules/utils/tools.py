@@ -7,7 +7,7 @@ from loguru import logger
 
 from seleniumwire import webdriver
 from telethon.tl.custom import Dialog
-from telethon.tl.types import MessageEntityMentionName, User, Channel
+from telethon.tl.types import MessageEntityMentionName, User, Channel, Chat
 from telethon.tl.functions.messages import GetBotCallbackAnswerRequest, AcceptUrlAuthRequest
 from telethon.errors import BotResponseTimeoutError, MessageIdInvalidError, ChannelPrivateError
 
@@ -118,7 +118,7 @@ def get_entity_name(entity: Entity) -> str:
         return getattr(entity.entity, 'username', None) or entity.entity.title
 
     # Handle Channel entity type
-    elif isinstance(entity, Channel):
+    elif isinstance(entity, (Channel, Chat)):
         return getattr(entity, 'username', None) or entity.title
 
     # Handle User entity type

@@ -220,8 +220,8 @@ class SubscriberModule(BaseModule):
             return False
 
         except UserAlreadyParticipantError:
-            logger.info(f"{session} is a participant of the group")
-            return False
+            logger.info(f"{session} is a participant of the group {group_hash}")
+            return True
 
     async def _split_in_threads(self, session: Session, group: EntityLike) -> None:
         """
@@ -237,7 +237,6 @@ class SubscriberModule(BaseModule):
                 return
 
             if not await self.join_group(session=session, group=group):
-                await self.file_handler.delete_row_from_file(file=self.groups_file, row=group)
                 return
 
             group_entity = await get_entity(session=session, identifier=group)
