@@ -131,7 +131,7 @@ class SubscriberModule(BaseModule):
                                                                      group_id=group_db.id).first()
 
                 if user_group_db and not user_group_db.leaved:
-                    logger.info("Some sessions are already a participant of the group")
+                    logger.info(f"{session}: Some sessions are already a participant of the group {group}")
                     return True
 
         return False
@@ -240,32 +240,28 @@ class SubscriberModule(BaseModule):
                 await self.file_handler.delete_row_from_file(file=self.groups_file, row=group)
                 return
 
+            group_entity = await get_entity(session=session, identifier=group)
+
             if (not self.allow_multiple_sessions_per_group and self._check_any_other_session_in_group(
-                    current_session=session, sessions=self.sessions,
-                    group=get_entity_name(await get_entity(session=session, identifier=group)))):
-                await LeaveGroupsModule.leave_group(session=session,
-                                                    group=await get_entity(session=session, identifier=group))
-                delete_user_group_db(session=session,
-                                     group=get_entity_name(await get_entity(session=session, identifier=group)))
+                    current_session=session, sessions=self.sessions, group=get_entity_name(group_entity))):
+                await LeaveGroupsModule.leave_group(session=session, group=group_entity)
+                delete_user_group_db(session=session, group=get_entity_name(group_entity))
                 return
 
             if (not await self._check_last_n_messages(session=session, group=group) or
                     not await self._check_n_participants(session=session, group=group)):
-                await LeaveGroupsModule.leave_group(session=session,
-                                                    group=await get_entity(session=session, identifier=group))
+                await LeaveGroupsModule.leave_group(session=session, group=group_entity)
                 await self.file_handler.delete_row_from_file(file=self.groups_file, row=group)
                 return
 
             await asyncio.sleep(10)
 
             if not (messages := await get_group_messages(session=session, group=group, message_count=50)):
-                await LeaveGroupsModule.leave_group(session=session,
-                                                    group=await get_entity(session=session, identifier=group))
+                await LeaveGroupsModule.leave_group(session=session, group=group_entity)
                 return
 
             if not await resolve_captcha(session=session, group=group, messages=messages):
-                await LeaveGroupsModule.leave_group(session=session,
-                                                    group=await get_entity(session=session, identifier=group))
+                await LeaveGroupsModule.leave_group(session=session, group=group_entity)
                 await self.file_handler.delete_row_from_file(file=self.groups_file, row=group)
                 return
 
