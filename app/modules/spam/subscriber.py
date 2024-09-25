@@ -286,5 +286,5 @@ class SubscriberModule(BaseModule):
         if len(self.groups) < self.groups_per_session:
             logger.error(f"Not enough groups have been given to join (<{self.groups_per_session})")
 
-        if tasks := [await self._get_task(session) for session in self.sessions]:
+        if tasks := [self._get_task(session) for session in self.sessions]:
             await asyncio.gather(*tasks)

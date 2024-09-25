@@ -147,7 +147,7 @@ class LeaveGroupsModule(BaseModule):
                         groups_to_process.append(session_group)
 
                 if groups_to_process:
-                    tasks.append(await self._get_task(session=session, groups=groups_to_process))
+                    tasks.append(self._get_task(session=session, groups=groups_to_process))
 
         if tasks:
             await asyncio.gather(*tasks)
