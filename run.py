@@ -73,12 +73,21 @@ def send_messages(role, session_username, messages_file, messages_list):
 
 @click.command()
 @click.option('--role', default=None)
-# @timeout_decorator(timeout=config.TIMEOUT_RESPONSER)
-def auto_respond(role):
+@click.option('--operator-group', required=True)
+@click.option('--operator-username', required=True)
+@click.option('--operator-language', default="rus")
+@timeout_decorator(timeout=config.TIMEOUT_RESPONSER)
+def auto_respond(role, operator_group, operator_username, operator_language):
     if not (sessions := get_sessions(role=role)):
         return
 
-    module = ResponseModule(operator_group="https://t.me/+oegXMrgrdlA4NDIy", response_message="Привет!")
+    response_messages = {
+        "ukr": f"Привіт)\nНапиши мені на основний акк {operator_username}",
+        "rus": f"Приветик)\nНапиши мне на основной акк {operator_username}",
+        "us": f"Hi)\nWrite to me back on my main account {operator_username}"
+    }
+
+    module = ResponseModule(operator_group=operator_group, response_message=response_messages.get(operator_language))
     loop = Loop(sessions)
     loop.start_module(module)
 
