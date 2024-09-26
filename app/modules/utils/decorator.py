@@ -109,6 +109,7 @@ def timeout_decorator(timeout: int):
 
         @wraps(func)
         def wrapper(*args, **kwargs):
+            logger.warning(f"The maximum time to perform the function {timeout} seconds.")
             # Set the signal handler and an alarm
             signal.signal(signal.SIGALRM, timeout_handler)
             signal.alarm(timeout)  # Set the alarm for the timeout duration
@@ -116,7 +117,7 @@ def timeout_decorator(timeout: int):
             try:
                 result = func(*args, **kwargs)  # Execute the function
                 return result
-            except TimeoutError:
+            except TypeError:
                 logger.warning(f"Function '{func.__name__}' timed out after {timeout} seconds.")
                 return None  # Return None or handle as needed
             finally:
