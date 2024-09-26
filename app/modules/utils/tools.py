@@ -129,12 +129,12 @@ def get_entity_name(entity: Entity) -> str:
     return str(entity)
 
 
-async def get_group_messages(session: Session, group: str, message_count: int) -> TotalList | None:
+async def get_entity_messages(session: Session, entity: EntityLike, message_count: int) -> TotalList | None:
     """
     Fetches a specified number of messages from the given group.
 
     :param session: The session object fetched from the database.
-    :param group: The group identifier (username or ID).
+    :param entity: The entity identifier (username or ID).
     :param message_count: The number of messages to retrieve.
     :return: A list of messages if successful, otherwise an empty list.
     """
@@ -142,13 +142,14 @@ async def get_group_messages(session: Session, group: str, message_count: int) -
         return
 
     try:
-        return await client.get_messages(group, limit=message_count)
+        return await client.get_messages(entity, limit=message_count)
     except ChannelPrivateError:
-        logger.error(f"{session}: {group} specified is private and you lack to access it.")
+        logger.error(f"{session}: {get_entity_name(entity)} specified is private and you lack to access it.")
         return
 
     except:
-        logger.error(f"{session} error while trying to retrieve the latest messages from a group {group}")
+        logger.error(
+            f"{session} error while trying to retrieve the latest messages from a group {get_entity_name(entity)}")
 
 
 async def get_async_page_with_proxy(host, port, username, password, url, timeout: int = 20):

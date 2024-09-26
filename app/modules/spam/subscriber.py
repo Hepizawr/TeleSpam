@@ -15,7 +15,7 @@ from app.modules.base import BaseModule
 from app.modules.leave_groups import LeaveGroupsModule
 from app.modules.utils.db_tools import set_user_group_db, delete_user_group_db
 from app.modules.utils.tools import get_groups_from_file, check_participation, check_ex_participation, \
-    get_group_messages, resolve_captcha, FileHandler, get_entity, get_entity_name
+    get_entity_messages, resolve_captcha, FileHandler, get_entity, get_entity_name
 
 from database import session as db
 from database import models
@@ -62,7 +62,7 @@ class SubscriberModule(BaseModule):
             :return: True if matches the condition, otherwise False.
         """
 
-        messages = await get_group_messages(session=session, group=group, message_count=message_count)
+        messages = await get_entity_messages(session=session, entity=group, message_count=message_count)
 
         if not messages:
             logger.warning(f"Group {group} has no messages")
@@ -255,7 +255,7 @@ class SubscriberModule(BaseModule):
 
             await asyncio.sleep(10)
 
-            if not (messages := await get_group_messages(session=session, group=group, message_count=50)):
+            if not (messages := await get_entity_messages(session=session, entity=group, message_count=50)):
                 await LeaveGroupsModule.leave_group(session=session, group=group_entity)
                 return
 
