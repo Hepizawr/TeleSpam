@@ -1,3 +1,10 @@
+import asyncio
+import concurrent
+import multiprocessing
+import signal
+import sys
+import threading
+import time
 import traceback
 
 from loguru import logger
@@ -87,3 +94,34 @@ def cron_task_decorator(func):
             logger.info(f"Role {role} has stopped its cron task.")
 
     return wrapper
+
+
+def timeout_decorator(timeout: int):
+    """
+    Decorator to timeout a function after a specified number of seconds.
+
+    :param timeout: Maximum time to execute the function in seconds.
+    """
+
+    def decorator(func):
+        def timeout_handler():
+            raise TimeoutError
+
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            # Set the signal handler and an alarm
+            signal.signal(signal.SIGALRM, timeout_handler)
+            signal.alarm(timeout)  # Set the alarm for the timeout duration
+
+            try:
+                result = func(*args, **kwargs)  # Execute the function
+                return result
+            except TimeoutError:
+                logger.warning(f"Function '{func.__name__}' timed out after {timeout} seconds.")
+                return None  # Return None or handle as needed
+            finally:
+                signal.alarm(0)  # Disable the alarm
+
+        return wrapper
+
+    return decorator

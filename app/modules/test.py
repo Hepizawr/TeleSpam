@@ -12,7 +12,5 @@ class TestModule(BaseModule):
         self.username = username
 
     async def run(self):
-        session = self.sessions.pop()
-        entity_ = await get_entity(session=session, identifier=self.username)
-        dialogs = await get_all_dialogs(session=session)
-        logger.info(entity_)
+        for session in self.sessions:
+            await session.get_async_client()
