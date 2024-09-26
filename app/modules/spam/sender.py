@@ -5,7 +5,7 @@ import traceback
 from loguru import logger
 from database import session as db
 from telethon.errors import InputUserDeactivatedError, UserBannedInChannelError, ChatWriteForbiddenError, \
-    ChatRestrictedError, ChatAdminRequiredError, ForbiddenError, PeerIdInvalidError, SlowModeWaitError
+    ChatRestrictedError, ChatAdminRequiredError, ForbiddenError, PeerIdInvalidError, SlowModeWaitError, BadRequestError
 
 from telethon.hints import EntityLike, Entity
 
@@ -82,7 +82,7 @@ class SenderModule(BaseModule):
             logger.error(f"{session} is banned in group {get_entity_name(entity=recipient)}")
             return False
 
-        except (ChatWriteForbiddenError, ChatRestrictedError, ChatAdminRequiredError):
+        except (ChatWriteForbiddenError, ChatRestrictedError, ChatAdminRequiredError, BadRequestError):
             logger.error(f"{session} can't write to {get_entity_name(entity=recipient)}")
             return False
 

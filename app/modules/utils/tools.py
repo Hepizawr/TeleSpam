@@ -1,6 +1,5 @@
 import asyncio
 import traceback
-from pathlib import Path
 
 import aiofiles
 from loguru import logger
