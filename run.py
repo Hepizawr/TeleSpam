@@ -3,7 +3,7 @@ import loguru
 from database import session as db
 
 from app.modules.spam.sender import SenderModule
-from app.modules.utils.decorator import cron_task_decorator, timeout_decorator
+from app.modules.utils.decorator import timeout_decorator
 from database import engine, models
 from database.models import Base
 
