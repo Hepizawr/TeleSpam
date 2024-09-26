@@ -23,6 +23,7 @@ def timeout_decorator(timeout: int):
                 result = func(*args, **kwargs)
                 return result
             finally:
+                logger.success(f"{func.__name__} has completed\n\n")
                 signal.alarm(0)  # Disable the alarm
 
         return wrapper
