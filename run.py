@@ -73,12 +73,12 @@ def send_messages(role, session_username, messages_file, messages_list):
 
 @click.command()
 @click.option('--role', default=None)
-@timeout_decorator(timeout=config.TIMEOUT_RESPONSER)
+# @timeout_decorator(timeout=config.TIMEOUT_RESPONSER)
 def auto_respond(role):
     if not (sessions := get_sessions(role=role)):
         return
 
-    module = ResponseModule(operator_group="", operator_username="", response_message="")
+    module = ResponseModule(operator_group="https://t.me/+oegXMrgrdlA4NDIy", response_message="Привет!")
     loop = Loop(sessions)
     loop.start_module(module)
 

@@ -8,7 +8,7 @@ from seleniumwire import webdriver
 from telethon.tl.custom import Dialog
 from telethon.tl.types import MessageEntityMentionName, User, Channel, Chat
 from telethon.tl.functions.messages import GetBotCallbackAnswerRequest, AcceptUrlAuthRequest
-from telethon.errors import BotResponseTimeoutError, MessageIdInvalidError, ChannelPrivateError
+from telethon.errors import BotResponseTimeoutError, MessageIdInvalidError, ChannelPrivateError, FloodWaitError
 
 from database import session as db
 from database import models
@@ -103,6 +103,13 @@ async def get_entity(session: Session, identifier: EntityLike) -> Entity | None:
         logger.critical(f"{identifier} not found")
         traceback.print_exc()
         return
+
+    except FloodWaitError as e:
+        logger.critical(f"{session} A wait of {e.seconds} seconds is required")
+
+    except:
+        logger.info(f"{session} had problems while getting an entity {identifier}")
+        traceback.print_exc()
 
 
 def get_entity_name(entity: Entity) -> str:
