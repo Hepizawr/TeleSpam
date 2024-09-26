@@ -112,7 +112,7 @@ def timeout_decorator(timeout: int):
         def wrapper(*args, **kwargs):
             logger.warning(f"The maximum time to perform the function {timeout} seconds.")
             # Set the signal handler and an alarm
-            signal.signal(signal.SIGALRM, _handler())
+            signal.signal(signal.SIGALRM, _handler)
             signal.alarm(timeout)  # Set the alarm for the timeout duration
 
             try:
