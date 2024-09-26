@@ -4,7 +4,7 @@ from loguru import logger
 from functools import wraps
 
 
-def timeout_decorator(timeout: int):
+def timeout_decorator(timeout: int = 1100):
     """
     Decorator to timeout a function after a specified number of seconds.
 

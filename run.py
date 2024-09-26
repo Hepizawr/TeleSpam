@@ -1,5 +1,8 @@
 import click
 import loguru
+
+import config
+from app.modules.spam.responser import ResponseModule
 from database import session as db
 
 from app.modules.spam.sender import SenderModule
@@ -27,7 +30,7 @@ def cli():
 @click.option('--groups-list', default=None)
 @click.option('--groups-per-session', default=1)
 @click.option('--multiple-sessions-per-group/--no-multiple-sessions-per-group', default=False)
-@timeout_decorator(timeout=1200)
+@timeout_decorator(timeout=config.TIMEOUT_SUBSCRIBER)
 def join_groups(role, session_username, groups_file, groups_list, groups_per_session, multiple_sessions_per_group):
     if not (sessions := get_sessions(role=role, username=session_username)):
         return
@@ -58,12 +61,24 @@ def leave_groups(role, session_username, groups_file, groups_list, leave_all):
 @click.option('--session-username', default=None)
 @click.option('--messages-file', default=None)
 @click.option('--messages-list', default=None)
-@timeout_decorator(timeout=1200)
+@timeout_decorator(timeout=config.TIMEOUT_SENDER)
 def send_messages(role, session_username, messages_file, messages_list):
     if not (sessions := get_sessions(role=role, username=session_username)):
         return
 
     module = SenderModule(messages_file=messages_file, messages_list=messages_list)
+    loop = Loop(sessions)
+    loop.start_module(module)
+
+
+@click.command()
+@click.option('--role', default=None)
+@timeout_decorator(timeout=config.TIMEOUT_RESPONSER)
+def auto_respond(role):
+    if not (sessions := get_sessions(role=role)):
+        return
+
+    module = ResponseModule(operator_group="", operator_username="", response_message="")
     loop = Loop(sessions)
     loop.start_module(module)
 
@@ -98,7 +113,7 @@ def add_commands(*commands):
 
 
 add_commands(delete_group_db, test)
-add_commands(join_groups, leave_groups, send_messages)
+add_commands(join_groups, leave_groups, send_messages, auto_respond)
 
 if __name__ == '__main__':
     Base.metadata.create_all(bind=engine)
