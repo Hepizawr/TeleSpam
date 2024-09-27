@@ -134,6 +134,7 @@ class LeaveGroupsModule(BaseModule):
             session_groups = [dialog for dialog in (await get_all_dialogs(session=session)) if dialog.is_group]
 
             if not session_groups:
+                logger.info(f"{session} is not a member of any group")
                 continue
 
             if self.leave_all:
