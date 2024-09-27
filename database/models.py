@@ -3,7 +3,7 @@ import traceback
 from sqlalchemy.orm import declarative_base, relationship
 from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Text, BIGINT, Boolean
 from telethon.errors import AuthKeyDuplicatedError, AuthKeyUnregisteredError, UserDeactivatedError, SessionRevokedError, \
-    FloodWaitError
+    FloodWaitError, UserDeactivatedBanError
 from telethon.sessions import StringSession
 from telethon.tl.functions.contacts import GetContactsRequest
 
@@ -93,11 +93,7 @@ class Session(Base):
                 system_lang_code=self.system_lang_code,
                 proxy=(self.proxy.type, self.proxy.host, int(self.proxy.port), True,
                        self.proxy.username, self.proxy.password) if self.proxy else None)
-            try:
-                cl.connect()
-            except (AuthKeyDuplicatedError, AuthKeyUnregisteredError):
-                logger.critical(f"AuthKeyError :: {self}")
-                return
+            cl.connect()
             self._client = cl
         return self._client
 
@@ -107,7 +103,7 @@ class Session(Base):
             client(GetContactsRequest(0))
             return client
 
-        except (AttributeError, UserDeactivatedError, SessionRevokedError):
+        except (AttributeError, UserDeactivatedError, UserDeactivatedBanError, SessionRevokedError):
             logger.error(f"{self} is banned")
             self.status = SessionStatus.BANNED.value
             self.task.status = TaskStatus.ERROR.value
@@ -138,11 +134,7 @@ class Session(Base):
                 system_lang_code=self.system_lang_code,
                 proxy=(self.proxy.type, self.proxy.host, int(self.proxy.port), True,
                        self.proxy.username, self.proxy.password) if self.proxy else None)
-            try:
-                await cl.connect()
-            except (AuthKeyDuplicatedError, AuthKeyUnregisteredError):
-                logger.critical(f"AuthKeyError :: {self}")
-                return
+            await cl.connect()
             self._client = cl
         return self._client
 
@@ -152,7 +144,7 @@ class Session(Base):
             await client(GetContactsRequest(0))
             return client
 
-        except (AttributeError, UserDeactivatedError, SessionRevokedError):
+        except (AttributeError, UserDeactivatedError, UserDeactivatedBanError, SessionRevokedError):
             logger.error(f"{self} is banned")
             self.status = SessionStatus.BANNED.value
             self.task.status = TaskStatus.ERROR.value
