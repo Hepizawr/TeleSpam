@@ -61,7 +61,7 @@ def leave_groups(role, session_username, groups_file, groups_list, leave_all):
 @click.option('--session-username', default=None)
 @click.option('--messages-file', default=None)
 @click.option('--messages-list', default=None)
-# @timeout_decorator(timeout=config.TIMEOUT_SENDER)
+@timeout_decorator(timeout=config.TIMEOUT_SENDER)
 def send_messages(role, session_username, messages_file, messages_list):
     if not (sessions := get_sessions(role=role, username=session_username)):
         return
