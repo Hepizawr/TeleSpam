@@ -89,8 +89,10 @@ class ResponseModule(BaseModule):
     async def _split_in_threads(self, session: Session, messages: list[Message]):
         async with self.semaphore:
             messages_sender = messages[0].sender
-            sender_username = messages_sender.username if messages_sender.username != "" else "\b"
-            separation_message = "-" * 50 + ' ' + '@' + sender_username
+            separation_message = "-" * 50
+
+            if getattr(messages_sender, 'username', None):
+                separation_message += ' @' + messages_sender.username
 
             if not await SubscriberModule.join_group(session=session, group=self.operator_group):
                 return

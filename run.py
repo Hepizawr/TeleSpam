@@ -82,9 +82,9 @@ def auto_respond(role, operator_group, operator_username, operator_language):
         return
 
     response_messages = {
-        "ukr": f"Привіт)\nНапиши мені на основний акк {operator_username}",
-        "rus": f"Приветик)\nНапиши мне на основной акк {operator_username}",
-        "us": f"Hi)\nWrite to me back on my main account {operator_username}"
+        "ukr": f"Привіт)\nНапиши мені на основний акк @{operator_username}",
+        "rus": f"Приветик)\nНапиши мне на основной акк @{operator_username}",
+        "us": f"Hi)\nWrite to me back on my main account @{operator_username}"
     }
 
     module = ResponseModule(operator_group=operator_group, response_message=response_messages.get(operator_language))
