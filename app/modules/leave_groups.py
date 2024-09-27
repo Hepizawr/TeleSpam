@@ -148,6 +148,8 @@ class LeaveGroupsModule(BaseModule):
 
                 if groups_to_process:
                     tasks.append(self._get_task(session=session, groups=groups_to_process))
+                else:
+                    logger.info(f"{session} is not in the provided groups")
 
         if tasks:
             await asyncio.gather(*tasks)
