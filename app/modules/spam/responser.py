@@ -29,7 +29,7 @@ class ResponseModule(BaseModule):
         self.response_message = response_message
         self.timeout_by_request_min = timeout_by_request_min
         self.timeout_by_request_max = timeout_by_request_max
-        self.semaphore = asyncio.Semaphore(config.MAX_THREADS)
+        self.semaphore = asyncio.Semaphore(1)
 
     @staticmethod
     async def _get_new_message(session: Session):
@@ -37,7 +37,7 @@ class ResponseModule(BaseModule):
 
         unread_chats = [
             chat for chat in session_dialogs
-            if chat.is_user and not chat.entity.bot and chat.unread_count > 0
+            if chat.is_user and not chat.entity.bot and chat.name != "Telegram" and chat.unread_count > 0
         ]
 
         if unread_chats:
