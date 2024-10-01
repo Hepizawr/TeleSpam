@@ -8,7 +8,6 @@ from telethon.hints import EntityLike
 from telethon.tl.custom import Message
 from telethon.tl.functions.messages import ForwardMessagesRequest
 
-import config
 from app.modules.base import BaseModule
 from app.modules.leave_groups import LeaveGroupsModule
 from app.modules.spam.sender import SenderModule
@@ -32,7 +31,13 @@ class ResponseModule(BaseModule):
         self.semaphore = asyncio.Semaphore(1)
 
     @staticmethod
-    async def _get_new_message(session: Session):
+    async def _get_new_message(session: Session) -> list[list[Message]] | list:
+        """
+        Retrieve new unread messages from user chats in the given session.
+
+        :param session: The session objects fetched from the database.
+        :return: A list of lists containing new unread messages per chat, or an empty list if no unread messages exist.
+        """
         session_dialogs = await get_all_dialogs(session=session)
 
         unread_chats = [
@@ -52,6 +57,14 @@ class ResponseModule(BaseModule):
 
     @staticmethod
     async def forward_messages(session: Session, recipient: EntityLike, messages: list[Message]) -> bool:
+        """
+        Forward a list of messages to the specified recipient.
+
+        :param session: The session objects fetched from the database.
+        :param recipient: The recipient (e.g., group or user) to forward messages to.
+        :param messages: The list of messages to forward.
+        :return: True if the messages were successfully forwarded, otherwise False.
+        """
         if not (client := await session.get_async_client()):
             return False
 
@@ -74,6 +87,13 @@ class ResponseModule(BaseModule):
 
     @staticmethod
     async def _mark_messages_read(session: Session, messages: list[Message]):
+        """
+        Mark a list of messages as read.
+
+        :param session: The session objects fetched from the database.
+        :param messages: The list of messages to mark as read.
+        :return:
+        """
         if not (client := await session.get_async_client()):
             return False
 
@@ -86,7 +106,14 @@ class ResponseModule(BaseModule):
             logger.error(f"{session} had trouble marking messages as read")
             traceback.print_exc()
 
-    async def _split_in_threads(self, session: Session, messages: list[Message]):
+    async def _split_in_threads(self, session: Session, messages: list[Message]) -> None:
+        """
+        Process messages from a specific session, sending them to the operator group and then responding to the sender.
+
+        :param session: The session objects fetched from the database.
+        :param messages: The list of messages to process.
+        :return: None
+        """
         async with self.semaphore:
             messages_sender = messages[0].sender
             separation_message = "-" * 50
@@ -97,22 +124,25 @@ class ResponseModule(BaseModule):
             if not await SubscriberModule.join_group(session=session, group=self.operator_group):
                 return
 
-            if not await SenderModule.send_message(session=session, recipient=self.operator_group,
-                                                   message=separation_message):
-                return
+            await SenderModule.send_message(session=session, recipient=self.operator_group, message=separation_message)
 
-            if not await self.forward_messages(session=session, recipient=self.operator_group, messages=messages):
-                return
+            forward_task = self.forward_messages(session=session, recipient=self.operator_group, messages=messages)
+            mark_read_task = self._mark_messages_read(session=session, messages=messages)
+            send_response_task = SenderModule.send_message(session=session, recipient=messages_sender,
+                                                           message=self.response_message)
+
+            await asyncio.gather(forward_task, mark_read_task, send_response_task)
 
             await LeaveGroupsModule.leave_group(session=session, group=self.operator_group)
 
-            await self._mark_messages_read(session=session, messages=messages)
+    async def _get_task(self, session: Session, new_messages: list[list[Message]]) -> None:
+        """
+        Processes the new messages from the session and manages the timing between requests.
 
-            if not await SenderModule.send_message(session=session, recipient=messages_sender,
-                                                   message=self.response_message):
-                return
-
-    async def _get_task(self, session: Session, new_messages: list[list[Message]]):
+        :param session: The session objects fetched from the database.
+        :param new_messages: The list of lists of new messages per chat.
+        :return: None
+        """
         for messages in new_messages:
             await self._split_in_threads(session=session, messages=messages)
             await asyncio.sleep(random.uniform(self.timeout_by_request_min, self.timeout_by_request_max))

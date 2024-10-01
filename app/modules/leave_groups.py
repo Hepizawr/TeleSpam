@@ -4,7 +4,7 @@ import traceback
 
 from loguru import logger
 
-from telethon.errors import UserNotParticipantError, FloodWaitError, ChatIdInvalidError
+from telethon.errors import UserNotParticipantError, FloodWaitError, ChatIdInvalidError, ChannelPrivateError
 from telethon.tl.functions.channels import LeaveChannelRequest
 from telethon.tl.functions.messages import DeleteChatUserRequest
 from telethon.hints import EntityLike
@@ -66,7 +66,7 @@ class LeaveGroupsModule(BaseModule):
             set_leave_user_group_db(session=session, group=get_entity_name(entity=group))
             return True
 
-        except TypeError:
+        except (TypeError, ChannelPrivateError):
             return await LeaveGroupsModule._leave_private_group(session=session, group=group)
 
         except UserNotParticipantError:
