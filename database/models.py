@@ -81,9 +81,9 @@ class Session(Base):
             representation = f"Session {self.phone_number}"
         return representation
 
-    def create_client(self) -> SafeTelethon | None:
-        if not self._client:
-            cl = SafeTelethon(
+    def _create_client(self) -> SafeTelethon | None:
+        try:
+            client = SafeTelethon(
                 StringSession(self.session_string),
                 api_id=self.app_id, api_hash=self.app_hash,
                 device_model=self.device_model,
@@ -93,13 +93,7 @@ class Session(Base):
                 system_lang_code=self.system_lang_code,
                 proxy=(self.proxy.type, self.proxy.host, int(self.proxy.port), True,
                        self.proxy.username, self.proxy.password) if self.proxy else None)
-            cl.connect()
-            self._client = cl
-        return self._client
-
-    def get_client(self) -> SafeTelethon | None:
-        try:
-            client = self.create_client()
+            client.connect()
             client(GetContactsRequest(0))
             return client
 
@@ -114,15 +108,20 @@ class Session(Base):
             logger.error(f"{self} can't connect to Telegram. Most likely a problem with the servers")
             return
 
-
         except:
             logger.error(f"{self} not working, for some reason")
             traceback.print_exc()
             return
 
-    async def _create_async_client(self) -> SafeTelethon | None:
+    def get_client(self) -> SafeTelethon | None:
         if not self._client:
-            cl = SafeTelethon(
+            self._client = self._create_client()
+
+        return self._client
+
+    async def _create_async_client(self) -> SafeTelethon | None:
+        try:
+            client = SafeTelethon(
                 StringSession(self.session_string),
                 api_id=self.app_id, api_hash=self.app_hash,
                 device_model=self.device_model,
@@ -132,13 +131,7 @@ class Session(Base):
                 system_lang_code=self.system_lang_code,
                 proxy=(self.proxy.type, self.proxy.host, int(self.proxy.port), True,
                        self.proxy.username, self.proxy.password) if self.proxy else None)
-            await cl.connect()
-            self._client = cl
-        return self._client
-
-    async def get_async_client(self) -> SafeTelethon | None:
-        try:
-            client = await self._create_async_client()
+            await client.connect()
             await client(GetContactsRequest(0))
             return client
 
@@ -157,6 +150,12 @@ class Session(Base):
             logger.error(f"{self} not working, for some reason")
             traceback.print_exc()
             return
+
+    async def get_async_client(self) -> SafeTelethon | None:
+        if not self._client:
+            self._client = await self._create_async_client()
+
+        return self._client
 
 
 class SessionTask(Base):
