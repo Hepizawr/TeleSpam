@@ -12,7 +12,8 @@ from app.modules.base import BaseModule
 from app.modules.leave_groups import LeaveGroupsModule
 from app.modules.spam.sender import SenderModule
 from app.modules.spam.subscriber import SubscriberModule
-from app.modules.utils.tools import get_all_dialogs, get_entity_messages, get_entity_name
+from app.modules.utils.db_tools import delete_user_group_db
+from app.modules.utils.tools import get_all_dialogs, get_entity_messages, get_entity_name, get_entity
 from database.models import Session
 
 
@@ -28,7 +29,6 @@ class ResponseModule(BaseModule):
         self.response_message = response_message
         self.timeout_by_request_min = timeout_by_request_min
         self.timeout_by_request_max = timeout_by_request_max
-        self.semaphore = asyncio.Semaphore(1)
 
     @staticmethod
     async def _get_new_message(session: Session) -> list[list[Message]] | list:
@@ -73,15 +73,15 @@ class ResponseModule(BaseModule):
 
         try:
             logger.info(
-                f"{session} is trying to forwards a messages from {get_entity_name(message_sender)} to {recipient}")
+                f"{session} is trying to forwards a messages from {get_entity_name(message_sender)} to {get_entity_name(recipient)}")
             await client(ForwardMessagesRequest(from_peer=message_sender.id, id=message_ids, to_peer=recipient))
             logger.success(
-                f"{session} successfully forwarded a messages from {get_entity_name(message_sender)} to {recipient}")
+                f"{session} successfully forwarded a messages from {get_entity_name(message_sender)} to ({type(recipient)}){get_entity_name(recipient)}")
             return True
 
         except:
             logger.error(
-                f"{session} had trouble forwarding the messages from {get_entity_name(message_sender)} to {recipient}")
+                f"{session} had trouble forwarding the messages from {get_entity_name(message_sender)} to ({type(recipient)}){get_entity_name(recipient)}")
             traceback.print_exc()
             return False
 
@@ -106,7 +106,7 @@ class ResponseModule(BaseModule):
             logger.error(f"{session} had trouble marking messages as read")
             traceback.print_exc()
 
-    async def _split_in_threads(self, session: Session, messages: list[Message]) -> None:
+    async def _process_messages(self, session: Session, messages: list[Message]) -> None:
         """
         Process messages from a specific session, sending them to the operator group and then responding to the sender.
 
@@ -114,48 +114,35 @@ class ResponseModule(BaseModule):
         :param messages: The list of messages to process.
         :return: None
         """
-        async with self.semaphore:
-            messages_sender = messages[0].sender
-            separation_message = "-" * 50
+        messages_sender = messages[0].sender
+        separation_message = "-" * 50
 
-            if getattr(messages_sender, 'username', None):
-                separation_message += ' @' + messages_sender.username
+        if getattr(messages_sender, 'username', None):
+            separation_message += ' @' + messages_sender.username
 
-            if not await SubscriberModule.join_group(session=session, group=self.operator_group):
-                return
+        if not await SubscriberModule.join_group(session=session, group=self.operator_group):
+            return
 
-            await SenderModule.send_message(session=session, recipient=self.operator_group, message=separation_message)
+        group_entity = await get_entity(session=session, identifier=self.operator_group)
 
-            forward_task = self.forward_messages(session=session, recipient=self.operator_group, messages=messages)
-            mark_read_task = self._mark_messages_read(session=session, messages=messages)
-            send_response_task = SenderModule.send_message(session=session, recipient=messages_sender,
-                                                           message=self.response_message)
+        await SenderModule.send_message(session=session, recipient=group_entity, message=separation_message)
 
-            await asyncio.gather(forward_task, mark_read_task, send_response_task)
+        await self.forward_messages(session=session, recipient=group_entity, messages=messages)
 
-            await LeaveGroupsModule.leave_group(session=session, group=self.operator_group)
+        await self._mark_messages_read(session=session, messages=messages)
 
-    async def _get_task(self, session: Session, new_messages: list[list[Message]]) -> None:
-        """
-        Processes the new messages from the session and manages the timing between requests.
+        await SenderModule.send_message(session=session, recipient=messages_sender, message=self.response_message)
 
-        :param session: The session objects fetched from the database.
-        :param new_messages: The list of lists of new messages per chat.
-        :return: None
-        """
-        for messages in new_messages:
-            await self._split_in_threads(session=session, messages=messages)
-            await asyncio.sleep(random.uniform(self.timeout_by_request_min, self.timeout_by_request_max))
+        await LeaveGroupsModule.leave_group(session=session, group=group_entity)
+
+        delete_user_group_db(session=session, group=get_entity_name(group_entity))
 
     async def run(self):
-        tasks = []
-
         for session in self.sessions:
             if not (new_messages := await self._get_new_message(session=session)):
                 logger.info(f"{session} has no new messages")
                 continue
 
-            tasks.append(self._get_task(session=session, new_messages=new_messages))
-
-        if tasks:
-            await asyncio.gather(*tasks)
+            for messages in new_messages:
+                await self._process_messages(session=session, messages=messages)
+                await asyncio.sleep(random.uniform(self.timeout_by_request_min, self.timeout_by_request_max))

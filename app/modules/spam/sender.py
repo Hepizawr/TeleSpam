@@ -35,7 +35,7 @@ class SenderModule(BaseModule):
 
         self.timeout_by_request_min = timeout_by_request_min
         self.timeout_by_request_max = timeout_by_request_max
-        self.semaphore = asyncio.Semaphore(config.MAX_THREADS)
+        self.semaphore = asyncio.Semaphore(config.MAX_SESSIONS_PER_ONCE)
 
     @staticmethod
     def _check_any_session_was_in_group(sessions: list[Session], group: str) -> bool:

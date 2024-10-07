@@ -1,4 +1,5 @@
 import asyncio
+import os
 import traceback
 
 import aiofiles
@@ -275,3 +276,17 @@ async def get_all_dialogs(session: Session) -> list | list[Entity]:
         logger.error(f"{session}: Error while getting dialogs")
         traceback.print_exc()
         return []
+
+
+def get_sessions_numbers(folder_path: str) -> list[str]:
+    """
+        Gets sessions numbers from specific folder with sessions
+
+        :param folder_path: Path to a folder with sessions
+        :return: List of sessions numbers
+    """
+    sessions_numbers = []
+    for file in os.listdir(folder_path):
+        if file.endswith(".session"):
+            sessions_numbers.append(file.rstrip(".session"))
+    return sessions_numbers

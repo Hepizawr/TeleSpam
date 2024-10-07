@@ -1,7 +1,7 @@
 import click
-import loguru
 
 import config
+from app.modules.sessions_role import SetSessionsRoleModule
 from app.modules.spam.responser import ResponseModule
 from database import session as db
 
@@ -21,6 +21,23 @@ from app.modules.utils.loop import Loop
 @click.group()
 def cli():
     pass
+
+
+@click.command()
+@click.option('--folder', required=True)
+@click.option("--role", required=True)
+def set_role(folder, role) -> None:
+    """
+        Command changes a role of sessions from specific folder
+
+        :param folder: The folder from which we need to take sessions
+        :param role: Role that will be added to sessions
+
+        :return: None
+    """
+    set_role_module = SetSessionsRoleModule(folder=folder, role=role)
+    loop = Loop([])
+    loop.start_module(set_role_module)
 
 
 @click.command()
@@ -122,7 +139,7 @@ def add_commands(*commands):
 
 
 add_commands(delete_group_db, test)
-add_commands(join_groups, leave_groups, send_messages, auto_respond)
+add_commands(join_groups, leave_groups, send_messages, auto_respond, set_role)
 
 if __name__ == '__main__':
     Base.metadata.create_all(bind=engine)

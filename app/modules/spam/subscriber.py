@@ -49,7 +49,7 @@ class SubscriberModule(BaseModule):
         self.file_handler = FileHandler()
         self.groups_per_session = groups_per_session
         self.allow_multiple_sessions_per_group = allow_multiple_sessions_per_group
-        self.semaphore = asyncio.Semaphore(config.MAX_THREADS)
+        self.semaphore = asyncio.Semaphore(config.MAX_SESSIONS_PER_ONCE)
 
     @staticmethod
     async def _check_last_n_messages(session: Session, group: EntityLike, message_count: int = 20) -> bool:
