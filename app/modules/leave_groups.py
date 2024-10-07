@@ -12,7 +12,7 @@ from telethon.hints import EntityLike
 import config
 from app.modules.base import BaseModule
 from app.modules.utils.tools import get_groups_from_file, get_entity_name, get_all_dialogs
-from app.modules.utils.db_tools import set_leave_user_group_db
+from app.modules.utils.db_tools import set_leave_user_group_db, delete_user_group_db
 from database.models import Session
 
 
@@ -45,7 +45,7 @@ class LeaveGroupsModule(BaseModule):
         self.leave_all = leave_all
         self.timeout_by_request_min = timeout_by_request_min
         self.timeout_by_request_max = timeout_by_request_max
-        self.semaphore = asyncio.Semaphore(config.MAX_THREADS)
+        self.semaphore = asyncio.Semaphore(config.MAX_SESSIONS_PER_ONCE)
 
     @staticmethod
     async def leave_group(session: Session, group: EntityLike) -> bool:
@@ -86,6 +86,13 @@ class LeaveGroupsModule(BaseModule):
 
     @staticmethod
     async def _leave_private_group(session: Session, group: EntityLike):
+        """
+        Attempts to leave a private group (or chat) using the provided session.
+
+        :param session: The session objects fetched from the database.
+        :param group: The group identifier (username or ID).
+        :return: True if the session has successfully left the private group, otherwise False.
+        """
         if not (client := await session.get_async_client()):
             return False
 
@@ -104,53 +111,50 @@ class LeaveGroupsModule(BaseModule):
             traceback.print_exc()
             return False
 
-    async def _split_in_threads(self, session: Session, group: EntityLike) -> None:
+    def _get_groups_to_leave(self, session_groups: list[EntityLike]) -> list[EntityLike]:
         """
-        Processes leaving a group for a session asynchronously, split into threads.
+        Filters the list of session groups to find the groups that should be left.
 
-        :param session: The session object fetched from the database.
-        :param group: The group identifier (username or ID).
+        :param session_groups: A list of groups the session is currently a part of.
+        :return: A list of groups that match the provided filter criteria.
+        """
+        groups = []
+        for session_group in session_groups:
+            group_name = get_entity_name(entity=session_group)
+            if group_name in self.groups:
+                groups.append(session_group)
+
+        return groups
+
+    async def _get_task(self, session: Session) -> None:
+        """
+        Iterates through a list of groups and processes each group for leaving, based on the given conditions.
+
+        :param session: The session objects fetched from the database.
         :return: None
         """
         async with self.semaphore:
-            await self.leave_group(session, group)
-            await asyncio.sleep(random.uniform(self.timeout_by_request_min, self.timeout_by_request_max))
-
-    async def _get_task(self, session: Session, groups: list[EntityLike]) -> None:
-        """
-        Iterates through a list of groups, processing each asynchronously.
-
-        :param session: The session object fetched from the database.
-        :param groups: List of group identifiers (username or ID).
-        :return: None
-        """
-        for group in groups:
-            await self._split_in_threads(session, group)
-
-    async def run(self):
-        tasks = []
-
-        for session in self.sessions:
-            session_groups = [dialog for dialog in (await get_all_dialogs(session=session)) if dialog.is_group]
+            session_groups = [dialog for dialog in (await get_all_dialogs(session=session)) if
+                              dialog.is_group and get_entity_name(entity=dialog) != 'cvg']
 
             if not session_groups:
                 logger.info(f"{session} is not a member of any group")
-                continue
+                return
 
             if self.leave_all:
-                tasks.append(await self._get_task(session=session, groups=session_groups))
+                groups_to_process = session_groups
             else:
-                groups_to_process = []
+                groups_to_process = self._get_groups_to_leave(session_groups=session_groups)
 
-                for session_group in session_groups:
-                    group_name = get_entity_name(entity=session_group)
-                    if group_name in self.groups:
-                        groups_to_process.append(session_group)
-
-                if groups_to_process:
-                    tasks.append(self._get_task(session=session, groups=groups_to_process))
-                else:
+                if not groups_to_process:
                     logger.info(f"{session} is not in the provided groups")
+                    return
 
-        if tasks:
+            for group in groups_to_process:
+                await self.leave_group(session, group)
+                delete_user_group_db(session=session, group=get_entity_name(group))
+                await asyncio.sleep(random.uniform(self.timeout_by_request_min, self.timeout_by_request_max))
+
+    async def run(self):
+        if tasks := [self._get_task(session=session) for session in self.sessions]:
             await asyncio.gather(*tasks)

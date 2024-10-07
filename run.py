@@ -1,6 +1,7 @@
 import click
 
 import config
+from app.modules.delete_messages import DeleteMessagesModule
 from app.modules.sessions_role import SetSessionsRoleModule
 from app.modules.spam.responser import ResponseModule
 from database import session as db
@@ -90,6 +91,19 @@ def send_messages(role, session_username, messages_file, messages_list):
 
 @click.command()
 @click.option('--role', default=None)
+@click.option('--session-username', default=None)
+@click.option('--offset-date', default=None)
+def delete_messages(role, session_username, offset_date):
+    if not (sessions := get_sessions(role=role, username=session_username)):
+        return
+
+    module = DeleteMessagesModule(offset_date=offset_date)
+    loop = Loop(sessions)
+    loop.start_module(module)
+
+
+@click.command()
+@click.option('--role', default=None)
 @click.option('--operator-group', required=True)
 @click.option('--operator-username', required=True)
 @click.option('--operator-language', default="rus")
@@ -139,7 +153,7 @@ def add_commands(*commands):
 
 
 add_commands(delete_group_db, test)
-add_commands(join_groups, leave_groups, send_messages, auto_respond, set_role)
+add_commands(join_groups, leave_groups, send_messages, delete_messages, auto_respond, set_role)
 
 if __name__ == '__main__':
     Base.metadata.create_all(bind=engine)

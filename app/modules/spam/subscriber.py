@@ -231,38 +231,37 @@ class SubscriberModule(BaseModule):
         :param group: The group identifier (username or ID).
         :return: None
         """
-        async with self.semaphore:
-            if (check_participation(session=session, group=group) or
-                    check_ex_participation(session=session, group=group)):
-                return
+        if (check_participation(session=session, group=group) or
+                check_ex_participation(session=session, group=group)):
+            return
 
-            if not await self.join_group(session=session, group=group):
-                return
+        if not await self.join_group(session=session, group=group):
+            return
 
-            group_entity = await get_entity(session=session, identifier=group)
+        group_entity = await get_entity(session=session, identifier=group)
 
-            if (not self.allow_multiple_sessions_per_group and self._check_any_other_session_in_group(
-                    current_session=session, sessions=self.sessions, group=get_entity_name(group_entity))):
-                await LeaveGroupsModule.leave_group(session=session, group=group_entity)
-                delete_user_group_db(session=session, group=get_entity_name(group_entity))
-                return
+        if (not self.allow_multiple_sessions_per_group and self._check_any_other_session_in_group(
+                current_session=session, sessions=self.sessions, group=get_entity_name(group_entity))):
+            await LeaveGroupsModule.leave_group(session=session, group=group_entity)
+            delete_user_group_db(session=session, group=get_entity_name(group_entity))
+            return
 
-            if (not await self._check_last_n_messages(session=session, group=group) or
-                    not await self._check_n_participants(session=session, group=group)):
-                await LeaveGroupsModule.leave_group(session=session, group=group_entity)
-                await self.file_handler.delete_row_from_file(file=self.groups_file, row=group)
-                return
+        if (not await self._check_last_n_messages(session=session, group=group) or
+                not await self._check_n_participants(session=session, group=group)):
+            await LeaveGroupsModule.leave_group(session=session, group=group_entity)
+            await self.file_handler.delete_row_from_file(file=self.groups_file, row=group)
+            return
 
-            await asyncio.sleep(10)
+        await asyncio.sleep(10)
 
-            if not (messages := await get_entity_messages(session=session, entity=group, message_count=50)):
-                await LeaveGroupsModule.leave_group(session=session, group=group_entity)
-                return
+        if not (messages := await get_entity_messages(session=session, entity=group, message_count=50)):
+            await LeaveGroupsModule.leave_group(session=session, group=group_entity)
+            return
 
-            if not await resolve_captcha(session=session, group=group, messages=messages):
-                await LeaveGroupsModule.leave_group(session=session, group=group_entity)
-                await self.file_handler.delete_row_from_file(file=self.groups_file, row=group)
-                return
+        if not await resolve_captcha(session=session, group=group, messages=messages):
+            await LeaveGroupsModule.leave_group(session=session, group=group_entity)
+            await self.file_handler.delete_row_from_file(file=self.groups_file, row=group)
+            return
 
     async def _get_task(self, session: Session):
         """
@@ -271,15 +270,17 @@ class SubscriberModule(BaseModule):
         :param session: The session object fetched from the database.
         :return: None
         """
-        for group in random.sample(self.groups, k=self.groups_per_session):
-            await self._split_in_threads(session, group)
+        async with self.semaphore:
+            for group in random.sample(self.groups, k=self.groups_per_session):
+                await self._split_in_threads(session, group)
 
-            logger.info(f"{session} is sleeping... {config.FLOOD_WAIT_TIMEOUT} left")
-            await asyncio.sleep(config.FLOOD_WAIT_TIMEOUT)
+                logger.info(f"{session} is sleeping... {config.FLOOD_WAIT_TIMEOUT} left")
+                await asyncio.sleep(config.FLOOD_WAIT_TIMEOUT)
 
     async def run(self):
         if len(self.groups) < self.groups_per_session:
             logger.error(f"Not enough groups have been given to join (<{self.groups_per_session})")
+            return
 
         if tasks := [self._get_task(session) for session in self.sessions]:
             await asyncio.gather(*tasks)

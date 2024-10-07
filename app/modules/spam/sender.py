@@ -113,37 +113,30 @@ class SenderModule(BaseModule):
         :param message: The message content to be sent.
         :return: None
         """
-        async with self.semaphore:
-            if self._check_any_session_was_in_group(sessions=self.sessions, group=get_entity_name(entity=group)):
-                for operator_username in config.OPERATORS_USERNAMES:
-                    message.replace(operator_username, "").strip()
 
-            if not await self.send_message(session=session, recipient=group, message=message):
-                await LeaveGroupsModule.leave_group(session=session, group=group)
-                return
+        if self._check_any_session_was_in_group(sessions=self.sessions, group=get_entity_name(entity=group)):
+            for operator_username in config.OPERATORS_USERNAMES:
+                message.replace(operator_username, "").strip()
 
-    async def _get_task(self, session: Session, groups: list[Entity]):
+        if not await self.send_message(session=session, recipient=group, message=message):
+            await LeaveGroupsModule.leave_group(session=session, group=group)
+            return
+
+    async def _get_task(self, session: Session):
         """
         Processes a list of groups, sending messages to each group asynchronously.
 
         :param session: The session objects fetched from the database.
-        :param groups: List of group entities to send messages to.
         :return: None
         """
-        for group in groups:
-            await self._split_in_threads(session=session, group=group, message=random.choice(self.messages))
-
-            sleep_time = random.uniform(self.timeout_by_request_min, self.timeout_by_request_max)
-            logger.info(f"{session} is sleeping... {sleep_time} left")
-            await asyncio.sleep(sleep_time)
-
-    async def run(self):
-        tasks = []
-
-        for session in self.sessions:
+        async with self.semaphore:
             session_groups = [dialog for dialog in (await get_all_dialogs(session=session)) if
                               dialog.is_group and get_entity_name(entity=dialog) != 'cvg']
-            tasks.append(self._get_task(session=session, groups=session_groups))
 
-        if tasks:
+            for group in session_groups:
+                await self._split_in_threads(session=session, group=group, message=random.choice(self.messages))
+                await asyncio.sleep(random.uniform(self.timeout_by_request_min, self.timeout_by_request_max))
+
+    async def run(self):
+        if tasks := [self._get_task(session=session) for session in self.sessions]:
             await asyncio.gather(*tasks)
