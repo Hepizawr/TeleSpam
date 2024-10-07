@@ -97,7 +97,8 @@ class LeaveGroupsModule(BaseModule):
             return False
 
         try:
-            await client(DeleteChatUserRequest(group.id if hasattr(group, "id") else group.entity.id, 'me'))
+            group_id = str(group.id).replace('-', '') if hasattr(group, "id") else group.entity.id
+            await client(DeleteChatUserRequest(chat_id=group_id, user_id='me'))
             logger.success(f"{session}: Successfully left private group {get_entity_name(entity=group)}")
             set_leave_user_group_db(session=session, group=get_entity_name(entity=group))
             return True
