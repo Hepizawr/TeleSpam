@@ -11,7 +11,7 @@ from telethon.hints import EntityLike
 
 import config
 from app.modules.base import BaseModule
-from app.modules.utils.tools import get_groups_from_file, get_entity_name, get_all_dialogs
+from app.modules.utils.tools import get_rows_from_file, get_entity_name, get_all_dialogs
 from app.modules.utils.db_tools import set_leave_user_group_db, delete_user_group_db
 from database.models import Session
 
@@ -36,7 +36,7 @@ class LeaveGroupsModule(BaseModule):
                  ):
 
         if groups_file:
-            self.groups = get_groups_from_file(groups_file)
+            self.groups = get_rows_from_file(groups_file)
         elif groups_list:
             self.groups = [groups_list] if isinstance(groups_list, str) else groups_list
         else:

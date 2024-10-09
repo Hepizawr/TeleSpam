@@ -7,11 +7,11 @@ from database.models import Session, Group
 
 def set_user_group_db(session: Session, group: str) -> None:
     """
-        Associates a session with a group in the database.
+    Associates a session with a group in the database.
 
-        :param session: The session objects fetched from the database.
-        :param group: The group objects fetched from the database.
-        :return:
+    :param session: The session objects fetched from the database.
+    :param group: The group objects fetched from the database.
+    :return: None
     """
     if not (group_db := get_group_db(group=group)):
         return
@@ -30,9 +30,11 @@ def set_user_group_db(session: Session, group: str) -> None:
 
 def delete_user_group_db(session: Session, group: str) -> None:
     """
-        :param session: The session objects fetched from the database.
-        :param group: The group identifier (username or link).
-        :return:
+    Deletes the association between a session and a group from the database.
+
+    :param session: The session object fetched from the database.
+    :param group: The group identifier (username or link).
+    :return: None
     """
     group_username = group.replace('https://t.me/', '').replace('t.me/', '')
 
@@ -55,6 +57,13 @@ def delete_user_group_db(session: Session, group: str) -> None:
 
 
 def set_leave_user_group_db(session: Session, group: str) -> None:
+    """
+    Marks the association between a session and a group as 'left' in the database.
+
+    :param session: The session object fetched from the database.
+    :param group: The group identifier (username or link).
+    :return: None
+    """
     group_username = group.replace('https://t.me/', '').replace('t.me/', '')
 
     if not (group_db := db.query(models.Group).filter_by(username=group_username).first()):
@@ -67,8 +76,8 @@ def set_leave_user_group_db(session: Session, group: str) -> None:
 
     try:
         user_group_db.leaved = True
-        db.add(user_group_db)
         db.commit()
+        logger.success(f"{session} marked as left from group {group_username}.")
 
     except Exception as e:
         db.rollback()
@@ -77,11 +86,11 @@ def set_leave_user_group_db(session: Session, group: str) -> None:
 
 def get_group_db(group: str) -> Group | None:
     """
-        Retrieves a Group instance from the database based on the provided username.
-        If the group does not exist in the database, it creates a new Group instance and adds it.
+    Retrieves a Group instance from the database based on the provided username.
+    If the group does not exist in the database, it creates a new Group instance and adds it.
 
-        :param group: The group identifier (username).
-        :return: An instance of the Group class fetched from the database.
+    :param group: The group identifier (username).
+    :return: An instance of the Group class fetched from the database.
     """
     group_username = group.replace('https://t.me/', '').replace('t.me/', '')
 

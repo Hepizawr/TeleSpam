@@ -15,13 +15,23 @@ import config
 
 
 class DeleteMessagesModule(BaseModule):
+    """
+    Handles the deletion of messages in specific groups for multiple user sessions.
+
+    :param offset_date: Optional date to filter messages by, only messages after this date will be deleted.
+    :param timeout_by_request_min: Minimum delay in seconds between each deletion request.
+    :param timeout_by_request_max: Maximum delay in seconds between each deletion request.
+    """
+
     def __init__(
             self,
             offset_date: str | None,
+            timeout_by_request_min: int = 1,
+            timeout_by_request_max: int = 5
     ):
         self.offset_date = datetime.strptime(offset_date, '%Y-%m-%d').date() if offset_date else None
-        self.timeout_by_request_min = 1
-        self.timeout_by_request_max = 5
+        self.timeout_by_request_min = timeout_by_request_min
+        self.timeout_by_request_max = timeout_by_request_max
         self.semaphore = asyncio.Semaphore(config.MAX_SESSIONS_PER_ONCE)
 
     async def _iter_session_messages(self, session: Session, group: EntityLike) -> RequestIter | None:

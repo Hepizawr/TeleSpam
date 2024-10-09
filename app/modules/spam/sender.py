@@ -18,6 +18,15 @@ from database.models import Session
 
 
 class SenderModule(BaseModule):
+    """
+    Handles sending messages to groups from multiple sessions asynchronously.
+
+    :param messages_file: Path to a file containing messages to be sent. If provided, the file's contents will be used.
+    :param messages_list: A single message or a list of messages to send. If provided, it overrides the file.
+    :param timeout_by_request_min: Minimum delay in seconds between sending messages (default is 1).
+    :param timeout_by_request_max: Maximum delay in seconds between sending messages (default is 10).
+    """
+
     def __init__(
             self,
             messages_file: str | None,

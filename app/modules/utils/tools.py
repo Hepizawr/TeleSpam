@@ -9,7 +9,8 @@ from seleniumwire import webdriver
 from telethon.tl.custom import Dialog
 from telethon.tl.types import MessageEntityMentionName, User, Channel, Chat
 from telethon.tl.functions.messages import GetBotCallbackAnswerRequest, AcceptUrlAuthRequest
-from telethon.errors import BotResponseTimeoutError, MessageIdInvalidError, ChannelPrivateError, FloodWaitError
+from telethon.errors import BotResponseTimeoutError, MessageIdInvalidError, ChannelPrivateError, FloodWaitError, \
+    UsernameInvalidError
 
 from database import session as db
 from database import models
@@ -17,12 +18,12 @@ from database.models import Session
 from telethon.hints import Entity, EntityLike, TotalList
 
 
-def get_groups_from_file(file: None | str) -> list | list[str]:
+def get_rows_from_file(file: None | str) -> list | list[str]:
     """
-    Reads a file containing group identifiers (username or link) and returns them as a list of strings.
+    Reads the content of a specified text file and returns it as a list of strings.
 
-    :param file: Text file with group identifiers(username or link)
-    :return: List of group identifiers if successful, otherwise empty list.
+    :param file: Path to the text file to be read.
+    :return: A list of strings if the file is read successfully, or an empty list if an error occurs.
     """
     if not file:
         return []
@@ -100,17 +101,18 @@ async def get_entity(session: Session, identifier: EntityLike) -> Entity | None:
         entity = await client.get_entity(identifier)
         return entity
 
-    except (TypeError, ValueError):
-        logger.critical(f"{identifier} not found")
-        traceback.print_exc()
+    except (TypeError, ValueError, UsernameInvalidError):
+        logger.error(f"{identifier} not found")
         return
 
     except FloodWaitError as e:
-        logger.critical(f"{session} A wait of {e.seconds} seconds is required")
+        logger.error(f"{session} A wait of {e.seconds} seconds is required")
+        return
 
     except:
         logger.info(f"{session} had problems while getting an entity {identifier}")
         traceback.print_exc()
+        return
 
 
 def get_entity_name(entity: Entity) -> str:
@@ -161,6 +163,16 @@ async def get_entity_messages(session: Session, entity: EntityLike, message_coun
 
 
 async def get_async_page_with_proxy(host, port, username, password, url, timeout: int = 20):
+    """
+    Opens a webpage using a proxy with specified credentials, waits for a specified timeout, and then quits the browser.
+
+    :param host: The proxy server's hostname or IP address.
+    :param port: The proxy server's port number.
+    :param username: The username for the proxy authentication.
+    :param password: The password for the proxy authentication.
+    :param url: The URL of the webpage to load.
+    :param timeout: Time in seconds to wait after the page is loaded before quitting the browser (default is 20 seconds).
+    """
     options = {
         'proxy': {
             'https': f'https://{username}:{password}@{host}:{port}',
@@ -175,6 +187,18 @@ async def get_async_page_with_proxy(host, port, username, password, url, timeout
 
 
 async def resolve_captcha(session: Session, group: EntityLike, messages) -> bool:
+    """
+    Resolves a captcha for a bot in a group chat by interacting with bot messages that mention the user.
+
+    This function searches through provided messages for captcha-related buttons and interacts with them using
+    either callback data or a URL to resolve the captcha. If the captcha involves loading a webpage, it uses the
+    session's proxy credentials to load the page.
+
+    :param session: The Telegram session used to communicate with the bot.
+    :param group: The group or channel where the bot is sending captcha messages.
+    :param messages: A list of messages from the bot that may contain captcha buttons.
+    :return: True if the captcha is successfully resolved, False if any error occurs during resolution.
+    """
     if not (client := await session.get_async_client()):
         return False
 
@@ -221,11 +245,11 @@ async def resolve_captcha(session: Session, group: EntityLike, messages) -> bool
 
 def check_participation(session: Session, group: str) -> bool:
     """
-        Checks if the user is currently participating in the specified group.
+    Checks if the user is currently participating in the specified group.
 
-        :param session: The session objects fetched from the database.
-        :param group: The group identifier (username).
-        :return: True if the user is actively participating in the group, otherwise False.
+    :param session: The session objects fetched from the database.
+    :param group: The group identifier (username).
+    :return: True if the user is actively participating in the group, otherwise False.
     """
     group_username = group.replace('https://t.me/', '').replace('t.me/', '')
 
@@ -241,11 +265,11 @@ def check_participation(session: Session, group: str) -> bool:
 
 def check_ex_participation(session: Session, group: str) -> bool:
     """
-        Checks if the user has previously participated in the specified group but has left.
+    Checks if the user has previously participated in the specified group but has left.
 
-        :param session: The session objects fetched from the database.
-        :param group: The group identifier (username).
-        :return: True if the user has left the group, False if they are still part of the group.
+    :param session: The session objects fetched from the database.
+    :param group: The group identifier (username).
+    :return: True if the user has left the group, False if they are still part of the group.
     """
     group_username = group.replace('https://t.me/', '').replace('t.me/', '')
 
@@ -280,10 +304,10 @@ async def get_all_dialogs(session: Session) -> list | list[Entity]:
 
 def get_sessions_numbers(folder_path: str) -> list[str]:
     """
-        Gets sessions numbers from specific folder with sessions
+    Gets sessions numbers from specific folder with sessions
 
-        :param folder_path: Path to a folder with sessions
-        :return: List of sessions numbers
+    :param folder_path: Path to a folder with sessions
+    :return: List of sessions numbers
     """
     sessions_numbers = []
     for file in os.listdir(folder_path):

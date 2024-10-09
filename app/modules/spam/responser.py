@@ -18,6 +18,15 @@ from database.models import Session
 
 
 class ResponseModule(BaseModule):
+    """
+    Handles forwarding new messages from user chats to an operator group and responds to the sender with a predefined message.
+
+    :param operator_group: The group where new messages will be forwarded to.
+    :param response_message: The message that will be sent back to the sender after forwarding.
+    :param timeout_by_request_min: Minimum delay in seconds between each request (default is 1).
+    :param timeout_by_request_max: Maximum delay in seconds between each request (default is 10).
+    """
+
     def __init__(
             self,
             operator_group: str,

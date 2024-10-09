@@ -6,6 +6,12 @@ from database import models
 
 
 def get_n_sessions(count: int) -> list[Session] | None:
+    """
+    Retrieves a specified number of active sessions from the database, excluding banned or spam-blocked sessions.
+
+    :param count: The maximum number of sessions to retrieve.
+    :return: A list of Session objects if found, otherwise None.
+    """
     return db.query(models.Session).filter(models.Session.status.notin_(["Banned", "SpamBlock"])).limit(count).all()
 
 

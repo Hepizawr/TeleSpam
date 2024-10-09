@@ -14,7 +14,7 @@ import config
 from app.modules.base import BaseModule
 from app.modules.leave_groups import LeaveGroupsModule
 from app.modules.utils.db_tools import set_user_group_db, delete_user_group_db
-from app.modules.utils.tools import get_groups_from_file, check_participation, check_ex_participation, \
+from app.modules.utils.tools import get_rows_from_file, check_participation, check_ex_participation, \
     get_entity_messages, resolve_captcha, FileHandler, get_entity, get_entity_name
 
 from database import session as db
@@ -23,6 +23,15 @@ from database.models import Session
 
 
 class SubscriberModule(BaseModule):
+    """
+    Module responsible for handling the process of joining to groups by sessions.
+
+    :param groups_file: Optional path to a file containing groups.
+    :param groups_list: Optional list of groups or a string that represents groups.
+    :param groups_per_session: Number of groups to handle per session (default 1).
+    :param allow_multiple_sessions_per_group: A boolean flag indicating whether multiple sessions are allowed to join the group.
+    """
+
     def __init__(
             self,
             groups_file: str | None,
@@ -30,16 +39,8 @@ class SubscriberModule(BaseModule):
             groups_per_session: int = 1,
             allow_multiple_sessions_per_group: bool = False,
     ):
-        """
-            Module responsible for handling the process of joining to groups by sessions.
-
-            :param groups_file: Optional path to a file containing groups.
-            :param groups_list: Optional list of groups or a string that represents groups.
-            :param groups_per_session: Number of groups to handle per session (default 1).
-            :param allow_multiple_sessions_per_group: A boolean flag indicating whether multiple sessions are allowed to join the group.
-        """
         if groups_file:
-            self.groups = get_groups_from_file(groups_file)
+            self.groups = get_rows_from_file(groups_file)
         elif groups_list:
             self.groups = [groups_list] if isinstance(groups_list, str) else groups_list
         else:
@@ -54,12 +55,12 @@ class SubscriberModule(BaseModule):
     @staticmethod
     async def _check_last_n_messages(session: Session, group: EntityLike, message_count: int = 20) -> bool:
         """
-            Checks if the specified group has a minimum number of recent messages and meets certain conditions.
+        Checks if the specified group has a minimum number of recent messages and meets certain conditions.
 
-            :param session: The session objects fetched from the database.
-            :param group: The group identifier (username or link).
-            :param message_count: Minimum amount of messages in the group.
-            :return: True if matches the condition, otherwise False.
+        :param session: The session objects fetched from the database.
+        :param group: The group identifier (username or link).
+        :param message_count: Minimum amount of messages in the group.
+        :return: True if matches the condition, otherwise False.
         """
 
         messages = await get_entity_messages(session=session, entity=group, message_count=message_count)
@@ -81,12 +82,12 @@ class SubscriberModule(BaseModule):
     @staticmethod
     async def _check_n_participants(session: Session, group: EntityLike, participants_min_number: int = 1000):
         """
-            Checks if the specified group meets the minimum number of participants required.
+        Checks if the specified group meets the minimum number of participants required.
 
-            :param session: The session objects fetched from the database.
-            :param group: The group identifier (username or link).
-            :param participants_min_number: Minimum number of participants the group.
-            :return: True if matches the condition, otherwise False.
+        :param session: The session objects fetched from the database.
+        :param group: The group identifier (username or link).
+        :param participants_min_number: Minimum number of participants the group.
+        :return: True if matches the condition, otherwise False.
         """
         if not (client := await session.get_async_client()):
             return False
@@ -108,12 +109,12 @@ class SubscriberModule(BaseModule):
     @staticmethod
     def _check_any_other_session_in_group(current_session: Session, sessions: list[Session], group: str) -> bool:
         """
-            Checks if any session from the list (excluding one) is already in the group and has not left it.
+        Checks if any session from the list (excluding one) is already in the group and has not left it.
 
-            :param current_session: Current session objects fetched from the database
-            :param sessions: List of session objects fetched from the database
-            :param group: The group identifier (username).
-            :return: True if any session (other than excluded) is still in the group, otherwise False.
+        :param current_session: Current session objects fetched from the database
+        :param sessions: List of session objects fetched from the database
+        :param group: The group identifier (username).
+        :return: True if any session (other than excluded) is still in the group, otherwise False.
         """
         group_db = db.query(models.Group).filter_by(username=group).first()
 
@@ -139,11 +140,11 @@ class SubscriberModule(BaseModule):
     @staticmethod
     async def join_group(session: Session, group: EntityLike) -> bool:
         """
-            Attempts to join a group (channel) using the provided session.
+        Attempts to join a group (channel) using the provided session.
 
-            :param session: The session objects fetched from the database.
-            :param group: The group identifier (username or link).
-            :return: True if the session successfully joined the group, otherwise False.
+        :param session: The session objects fetched from the database.
+        :param group: The group identifier (username or link).
+        :return: True if the session successfully joined the group, otherwise False.
         """
         if not (client := await session.get_async_client()):
             return False
@@ -189,11 +190,11 @@ class SubscriberModule(BaseModule):
     @staticmethod
     async def _join_group_by_hash(session: Session, group_hash: str) -> bool:
         """
-            Attempts to join a private group (channel) by its hash, using the session provided.
+        Attempts to join a private group (channel) by its hash, using the session provided.
 
-            :param session: The session objects fetched from the database.
-            :param group_hash: The group hash identifier (like A4LmkR23G0IGxBE71zZfo1)
-            :return: True if the session successfully joined the group, otherwise False.
+        :param session: The session objects fetched from the database.
+        :param group_hash: The group hash identifier (like A4LmkR23G0IGxBE71zZfo1)
+        :return: True if the session successfully joined the group, otherwise False.
         """
         if not (client := await session.get_async_client()):
             return False
@@ -223,7 +224,7 @@ class SubscriberModule(BaseModule):
             logger.info(f"{session} is a participant of the group {group_hash}")
             return True
 
-    async def _split_in_threads(self, session: Session, group: EntityLike) -> None:
+    async def _process_group(self, session: Session, group: EntityLike) -> None:
         """
         Handles the process of adding a session to a group and performing necessary checks.
 
@@ -271,16 +272,12 @@ class SubscriberModule(BaseModule):
         :return: None
         """
         async with self.semaphore:
-            for group in random.sample(self.groups, k=self.groups_per_session):
-                await self._split_in_threads(session, group)
+            for group in random.sample(self.groups, k=min(len(self.groups), self.groups_per_session)):
+                await self._process_group(session, group)
 
                 logger.info(f"{session} is sleeping... {config.FLOOD_WAIT_TIMEOUT} left")
                 await asyncio.sleep(config.FLOOD_WAIT_TIMEOUT)
 
     async def run(self):
-        if len(self.groups) < self.groups_per_session:
-            logger.error(f"Not enough groups have been given to join (<{self.groups_per_session})")
-            return
-
         if tasks := [self._get_task(session) for session in self.sessions]:
             await asyncio.gather(*tasks)
